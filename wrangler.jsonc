@@ -1,5 +1,5 @@
 {
-    "name": "wordpress-zaraz-admin-worker",
+    "name": "wordpress-zaraz-admin-worker-status",
     "compatibility_date": "2025-04-16",
     "main": "worker-status.js"
   }
