@@ -1,42 +1,32 @@
 export default {
-  async fetch(request) {
-    const corsHeaders = {
-      "Access-Control-Allow-Origin": "https://www.tiesthatbindgaming.com",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
-    };
+  async fetch(request, env, ctx) {
+    const response = await fetch(request);
+    const contentType = response.headers.get("Content-Type") || "";
 
-    // Handle CORS preflight requests
-    if (request.method === "OPTIONS") {
-      return new Response(null, {
-        status: 204,
-        headers: corsHeaders,
-      });
+    // Only modify HTML pages
+    if (!contentType.includes("text/html")) {
+      return response;
     }
 
-    if (request.method !== "POST") {
-      return new Response("Method Not Allowed", {
-        status: 405,
-        headers: corsHeaders,
-      });
-    }
+    // Read our custom header set by WordPress
+    const isAdminHeader = response.headers.get("X-Is-Admin");
+    const isAdmin = isAdminHeader && isAdminHeader.toLowerCase() === "true";
 
-    try {
-      const { client } = await request.json();
-      const isAdmin = client?.IsAdmin ?? "false";
+    // Inject zarazData before </head>
+    const originalBody = await response.text();
+    const injection = `
+<script>
+  window.zarazData = window.zarazData || {};
+  window.zarazData.client = window.zarazData.client || {};
+  window.zarazData.client.IsAdmin = "${isAdmin ? 'true' : 'false'}";
+</script>`;
 
-      return new Response(isAdmin, {
-        status: 200,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
-      });
-    } catch (err) {
-      return new Response("Bad Request", {
-        status: 400,
-        headers: corsHeaders,
-      });
-    }
-  },
+    const modifiedBody = originalBody.replace("</head>", `${injection}</head>`);
+
+    return new Response(modifiedBody, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers
+    });
+  }
 };
