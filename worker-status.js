@@ -1,10 +1,9 @@
 export default {
-  async fetch(request, env) {
+  async fetch(request) {
     const { client } = await request.json();
-    const isAdminValue = client.IsAdmin;
-
-    return new Response(JSON.stringify(isAdminValue), {
-      headers: { 'content-type': 'application/json' },
+    const isAdmin = client?.IsAdmin || "false";
+    return new Response(isAdmin, {
+      headers: { "content-type": "application/json" }
     });
   }
-};
+}
