@@ -1,33 +1,15 @@
 export default {
-  async fetch(request, env, ctx) {
-    const response = await fetch(request);
-    const contentType = response.headers.get("Content-Type") || "";
+  async fetch(request, env) {
+    // Zaraz sends the context (including page's JS variables like window.IsAdmin)
+    // as a POST request body to Workers configured as Zaraz variables.
+    const { client } = await request.json(); 
 
-    // Only inject into HTML documents
-    if (!contentType.includes("text/html")) {
-      return response;
-    }
+    // Access the IsAdmin variable that your WordPress site outputs.
+    const isAdminValue = client.IsAdmin; 
 
-    // Get the header sent from WordPress
-    const isAdminHeader = response.headers.get("X-Is-Admin");
-    const isAdmin = isAdminHeader?.toLowerCase() === "true";
-
-    // Read and modify the body
-    const originalBody = await response.text();
-
-    const injection = `
-<script>
-  window.zarazData = window.zarazData || {};
-  window.zarazData.client = window.zarazData.client || {};
-  window.zarazData.client.IsAdmin = "${isAdmin ? 'true' : 'false'}";
-</script>`;
-
-    const modifiedBody = originalBody.replace("</head>", `${injection}</head>`);
-
-    return new Response(modifiedBody, {
-      status: response.status,
-      statusText: response.statusText,
-      headers: response.headers,
+    // Return the boolean value back to Zaraz.
+    return new Response(JSON.stringify(isAdminValue), {
+      headers: { 'content-type': 'application/json' },
     });
-  }
-}
+  },
+};
