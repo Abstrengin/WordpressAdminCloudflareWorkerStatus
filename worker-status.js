@@ -1,22 +1,33 @@
 export default {
-  async fetch(request, env) {
-    // Only handle POST requests where Zaraz calls the worker with JSON payload
-    if (request.method === "POST") {
-      let client = {};
-      try {
-        const reqBody = await request.json();
-        client = reqBody?.client || {};
-      } catch {
-        // ignore JSON parse errors
-      }
-      const isAdmin = client?.IsAdmin?.toString().toLowerCase() === "true";
+  async fetch(request, env, ctx) {
+    const response = await fetch(request);
+    const contentType = response.headers.get("Content-Type") || "";
 
-      return new Response(JSON.stringify(isAdmin), {
-        headers: { "Content-Type": "application/json" }
-      });
+    // Only inject into HTML documents
+    if (!contentType.includes("text/html")) {
+      return response;
     }
 
-    // For any other requests (GET page loads, assets), just proxy normally
-    return fetch(request);
+    // Get the header sent from WordPress
+    const isAdminHeader = response.headers.get("X-Is-Admin");
+    const isAdmin = isAdminHeader?.toLowerCase() === "true";
+
+    // Read and modify the body
+    const originalBody = await response.text();
+
+    const injection = `
+<script>
+  window.zarazData = window.zarazData || {};
+  window.zarazData.client = window.zarazData.client || {};
+  window.zarazData.client.IsAdmin = "${isAdmin ? 'true' : 'false'}";
+</script>`;
+
+    const modifiedBody = originalBody.replace("</head>", `${injection}</head>`);
+
+    return new Response(modifiedBody, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+    });
   }
 }
