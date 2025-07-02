@@ -1,22 +1,22 @@
 export default {
   async fetch(request, env) {
-    // Only handle POST requests where Zaraz calls the worker with JSON payload
-    if (request.method === "POST") {
-      let client = {};
-      try {
-        const reqBody = await request.json();
-        client = reqBody?.client || {};
-      } catch {
-        // ignore JSON parse errors
-      }
-      const isAdmin = client?.IsAdmin?.toString().toLowerCase() === "true";
+    try {
+      // Zaraz sends context (including window.IsAdmin) via a POST request body
+      const { client } = await request.json(); 
+      const isAdminValue = client.IsAdmin; 
 
-      return new Response(JSON.stringify(isAdmin), {
-        headers: { "Content-Type": "application/json" }
+      // Return the boolean value back to Zaraz
+      return new Response(JSON.stringify(isAdminValue), {
+        headers: { 'content-type': 'application/json' },
+      });
+    } catch (error) {
+      // Log the error for debugging in Cloudflare Workers dashboard
+      console.error("Worker error processing Zaraz request:", error);
+      // Return false as a safe fallback if worker fails, so GA is not blocked
+      return new Response(JSON.stringify(false), { 
+        headers: { 'content-type': 'application/json' },
+        status: 500 
       });
     }
-
-    // For any other requests (GET page loads, assets), just proxy normally
-    return fetch(request);
-  }
-}
+  },
+};
