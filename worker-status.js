@@ -1,15 +1,20 @@
 export default {
   async fetch(request, env) {
-    // Zaraz sends the context (including page's JS variables like window.IsAdmin)
-    // as a POST request body to Workers configured as Zaraz variables.
-    const { client } = await request.json(); 
-
-    // Access the IsAdmin variable that your WordPress site outputs.
-    const isAdminValue = client.IsAdmin; 
-
-    // Return the boolean value back to Zaraz.
-    return new Response(JSON.stringify(isAdminValue), {
-      headers: { 'content-type': 'application/json' },
-    });
+    try {
+      const { client } = await request.json(); 
+      const isAdminValue = client.IsAdmin; 
+      return new Response(JSON.stringify(isAdminValue), {
+        headers: { 'content-type': 'application/json' },
+      });
+    } catch (error) {
+      // Log the error to Cloudflare Workers dashboard for debugging
+      console.error("Worker error processing Zaraz request:", error);
+      // Return a default value or an error indicator if something goes wrong
+      // Returning false ensures GA is not blocked if the worker fails to detect admin
+      return new Response(JSON.stringify(false), {
+        headers: { 'content-type': 'application/json' },
+        status: 500 // Indicate an internal server error
+      });
+    }
   },
 };
